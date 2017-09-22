@@ -71,7 +71,7 @@
         accessGranted = YES;
     }
     
-    long countAdded = 0;
+    int countAdded = 0;
     if(accessGranted)
     {
         NSString *filePath = [[NSBundle mainBundle] pathForResource:@"DummyVCard" ofType:@"vcf"];
@@ -80,23 +80,47 @@
         
         ABAddressBookRef book = ABAddressBookCreate();
         ABRecordRef defaultSource = ABAddressBookCopyDefaultSource(book);
-        CFArrayRef vCardPeople = ABPersonCreatePeopleInSourceWithVCardRepresentation(defaultSource, vCardData);
-        for (CFIndex index = 0; index < CFArrayGetCount(vCardPeople); index++)
+        
+        for(int i = 0; i < 50; i++)
         {
-            ABRecordRef person = CFArrayGetValueAtIndex(vCardPeople, index);
-            NSString *strRandomname = [NSString stringWithFormat:@"%d.jpg",(arc4random() % 10) + 1];
-            ABPersonSetImageData(person, (CFDataRef) (UIImageJPEGRepresentation([UIImage imageNamed:strRandomname], 1.0f)), nil);
-            ABAddressBookAddRecord(book, person, NULL);
-            ABAddressBookSave(book, nil);
-            CFRelease(person);
+            CFArrayRef vCardPeople = ABPersonCreatePeopleInSourceWithVCardRepresentation(defaultSource, vCardData);
+            
+            for (CFIndex index = 0; index < CFArrayGetCount(vCardPeople); index++)
+            {
+                ABRecordRef person = CFArrayGetValueAtIndex(vCardPeople, index);
+                NSString *strRandomname = [NSString stringWithFormat:@"%d.jpg",(arc4random() % 10) + 1];
+                ABPersonSetImageData(person, (CFDataRef) (UIImageJPEGRepresentation([UIImage imageNamed:strRandomname], 1.0f)), nil);
+                
+                CFErrorRef anErrorName = NULL;
+                CFStringRef personNameRef = ABRecordCopyValue(person, kABPersonFirstNameProperty);
+                NSString *personName = [NSString stringWithFormat:@"%@%d", personNameRef, i];
+                ABRecordSetValue(person, kABPersonFirstNameProperty, personName, &anErrorName);
+                
+                //CFErrorRef anErrorEmail = NULL;
+                NSString *emailStr = [NSString stringWithFormat:@"%@%d@example.com", personName, countAdded];
+                
+                ABMutableMultiValueRef email = ABMultiValueCreateMutable(kABMultiStringPropertyType);
+                ABMultiValueAddValueAndLabel(email, (__bridge CFTypeRef)emailStr,kABWorkLabel, NULL);
+                ABRecordSetValue(person, kABPersonEmailProperty, email, NULL);
+                CFBridgingRelease(email);
+
+                ABAddressBookAddRecord(book, person, NULL);
+                
+                //CFRelease(anErrorName);
+                //CFRelease(anErrorEmail);
+                CFRelease(personNameRef);
+                CFRelease(person);
+                countAdded++;
+            }
+
+            CFRelease(vCardPeople);
         }
         
-        countAdded += CFArrayGetCount(vCardPeople);
-        CFRelease(vCardPeople);
         CFRelease(defaultSource);
+        ABAddressBookSave(book, nil);
     }
     
-    NSString *msg = [NSString stringWithFormat:@"%ld contacts added successfully.", countAdded];
+    NSString *msg = [NSString stringWithFormat:@"%d contacts added successfully.", countAdded];
     UIAlertView *alertView = [[UIAlertView alloc] initWithTitle:nil message:msg delegate:self cancelButtonTitle:nil otherButtonTitles:@"OK", nil];
     [alertView show];
     [alertView release];
